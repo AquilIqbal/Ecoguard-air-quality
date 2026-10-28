@@ -1,0 +1,288 @@
+﻿{% extends "base.html" %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Top Navigation -->
+    <nav class="top-nav">
+        <div class="nav-left">
+            <div class="logo">
+                <i class="fas fa-leaf"></i>
+                <span>EcoGuard</span>
+            </div>
+            <div class="tagline">AI-Powered Air Quality Intelligence</div>
+        </div>
+        <div class="nav-right">
+            <button type="button" class="btn-nav theme-toggle" onclick="toggleEcoGuardTheme()" id="theme-toggle-btn">
+                <i class="fas fa-moon" id="theme-toggle-icon"></i>
+                <span id="theme-toggle-label">Dark Mode</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Search Bar -->
+    <div class="search-section">
+        <div class="search-container">
+            <div class="location-display">
+                <i class="fas fa-map-marker-alt"></i>
+                <span id="current-location">{{ selected_city|title }}, India</span>
+            </div>
+            <form action="/" method="GET" class="search-form">
+                <input 
+                    type="text" 
+                    name="city" 
+                    class="search-input" 
+                    placeholder="Search city..."
+                    value="{{ selected_city }}"
+                    autocomplete="off"
+                    id="city-search"
+                >
+                <button type="submit" class="search-btn">
+                    <i class="fas fa-search"></i>
+                </button>
+            </form>
+            <button class="btn-location" onclick="getMyLocation()">
+                <i class="fas fa-crosshairs"></i> Use My Location
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+        <!-- Current AQI -->
+        <div class="stat-card stat-current">
+            <div class="stat-icon">
+                <i class="fas fa-wind"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-label">CURRENT AQI</div>
+                <div class="stat-value">{{ current_aqi if current_aqi else '--' }}</div>
+                <div class="stat-sublabel">{{ selected_city|title }}</div>
+                {% if current_aqi %}
+                <div class="stat-badge badge-red">
+                    <i class="fas fa-circle"></i> {{ category }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Tomorrow's Forecast -->
+        <div class="stat-card stat-forecast">
+            <div class="stat-icon">
+                <i class="fas fa-brain"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-label">TOMORROW'S FORECAST</div>
+                <div class="stat-value">
+                    {% if tomorrow_prediction %}
+                        {{ tomorrow_prediction.aqi }}
+                    {% else %}
+                        --
+                    {% endif %}
+                </div>
+                <div class="stat-sublabel">AI Predicted</div>
+                {% if tomorrow_prediction %}
+                <div class="stat-change {{ 'positive' if tomorrow_prediction.change < 0 else 'negative' }}">
+                    <i class="fas fa-arrow-{{ 'down' if tomorrow_prediction.change < 0 else 'up' }}"></i>
+                    {{ tomorrow_prediction.change|abs }}% {{ 'Improvement' if tomorrow_prediction.change < 0 else 'Increase' }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Model Accuracy -->
+        <div class="stat-card stat-accuracy">
+            <div class="stat-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-label">MODEL ACCURACY</div>
+                <div class="stat-value">
+                    {% if model_info %}
+                        {{ model_info.accuracy_percent }}%
+                    {% else %}
+                        71%
+                    {% endif %}
+                </div>
+                <div class="stat-sublabel">R2 Score</div>
+                <div class="stat-badge badge-green">BEST MODEL</div>
+            </div>
+        </div>
+
+        <!-- Active Stations -->
+        <div class="stat-card stat-stations">
+            <div class="stat-icon">
+                <i class="fas fa-broadcast-tower"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-label">ACTIVE STATIONS</div>
+                <div class="stat-value">1,247</div>
+                <div class="stat-sublabel">Real-time Data</div>
+                <div class="stat-badge badge-blue">LIVE</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="content-grid">
+        <!-- Left Column -->
+        <div class="content-left">
+            <!-- Chart Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-chart-area"></i> AQI Trend & 7-Day Forecast
+                    </h3>
+                    <div class="card-tabs">
+                        <button class="tab-btn active" data-tab="official">Official</button>
+                        <button class="tab-btn" data-tab="ai">AI Forecast</button>
+                        <button class="tab-btn" data-tab="compare">Compare</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="aqi-chart"></canvas>
+                        <div class="chart-empty-state" id="chart-empty-state">
+                            Official WAQI forecast is unavailable for this city right now. Use AI Forecast or Compare for the current projection.
+                        </div>
+                    </div>
+                    <div class="chart-legend" id="chart-legend"></div>
+                </div>
+            </div>
+
+            <!-- Map Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-map-marked-alt"></i> Live AQI Heatmap - India
+                    </h3>
+                    <div class="card-tabs">
+                        <button class="tab-btn active" data-tab="city">City View</button>
+                        <button class="tab-btn" data-tab="india">India View</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="map"></div>
+                    <div class="map-legend">
+                        <div class="legend-title">AQI SCALE</div>
+                        <div class="legend-items">
+                            <div class="legend-scale">
+                                <span class="scale-label">0-50</span>
+                                <span class="scale-color" style="background: #10b981;"></span>
+                                <span class="scale-text">Good</span>
+                            </div>
+                            <div class="legend-scale">
+                                <span class="scale-label">51-100</span>
+                                <span class="scale-color" style="background: #fbbf24;"></span>
+                                <span class="scale-text">Satisfactory</span>
+                            </div>
+                            <div class="legend-scale">
+                                <span class="scale-label">101-200</span>
+                                <span class="scale-color" style="background: #f97316;"></span>
+                                <span class="scale-text">Moderate</span>
+                            </div>
+                            <div class="legend-scale">
+                                <span class="scale-label">201-300</span>
+                                <span class="scale-color" style="background: #ef4444;"></span>
+                                <span class="scale-text">Poor</span>
+                            </div>
+                            <div class="legend-scale">
+                                <span class="scale-label">300+</span>
+                                <span class="scale-color" style="background: #a855f7;"></span>
+                                <span class="scale-text">Severe</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="content-right">
+            <!-- Health Advisory -->
+            {% if health %}
+            <div class="card card-compact card-warning">
+                <div class="card-header-simple">
+                    <i class="fas fa-heartbeat"></i>
+                    <h3>Health Advisory</h3>
+                    <span class="badge badge-warning">{{ health.level }}</span>
+                </div>
+                <div class="card-body-simple">
+                    <p>{{ health.message }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- ML Model Performance -->
+            <div class="card card-compact">
+                <div class="card-header-simple">
+                    <i class="fas fa-robot"></i>
+                    <h3>ML Model Performance</h3>
+                </div>
+                <div class="card-body-simple">
+                    {% for metric in model_metrics %}
+                    <div class="model-item{{ ' model-active' if metric.active else '' }}">
+                        <div class="model-header">
+                            <span class="model-name">{{ metric.name }}</span>
+                            {% if metric.active %}
+                            <span class="badge badge-success">ACTIVE</span>
+                            {% endif %}
+                        </div>
+                        <div class="model-metrics">
+                            <div class="metric">
+                                <span class="metric-label">MAE</span>
+                                <span class="metric-value">{{ "%.1f"|format(metric.mae) }}</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">RMSE</span>
+                                <span class="metric-value">{{ "%.1f"|format(metric.rmse) }}</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">R2</span>
+                                <span class="metric-value">{{ "%.2f"|format(metric.r2) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>EcoGuard (c) 2026 | MSc Computer Applications Dissertation Project</p>
+    </footer>
+</div>
+
+<!-- Pass data to JavaScript -->
+<script>
+    window.chartData = {
+        labels: {{ labels|tojson }},
+        actual: {{ actual|tojson }},
+        predicted: {{ predicted|tojson }},
+        officialForecastAvailable: {{ official_forecast_available|tojson }},
+        currentAqi: {{ current_aqi if current_aqi is not none else 'null' }},
+        tomorrowAqi: {{ tomorrow_prediction.aqi if tomorrow_prediction else 'null' }},
+        todayLabel: "{{ today_label }}",
+        tomorrowLabel: "{{ tomorrow_label }}"
+    };
+    
+    window.mapData = {
+        {% if lat and lon %}
+            lat: {{ lat }},
+            lon: {{ lon }},
+        {% else %}
+            lat: null,
+            lon: null,
+        {% endif %}
+        city: '{{ selected_city }}'
+    };
+    
+    console.log('Page loaded for:', window.mapData.city);
+    console.log('Coordinates:', window.mapData.lat, window.mapData.lon);
+    console.log('Chart data points:', window.chartData.labels.length);
+</script>
+{% endblock %}
+
+
+

@@ -1,0 +1,19 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+Api key's.txt
+uploads/Api key's.txt
+
+# Local Python environment and generated files
+eco/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# Runtime cache
+data/cache/
+
+aqi_model.pkl
+
+ml/aqi_model.pkl
